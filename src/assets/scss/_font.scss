@@ -1,0 +1,22 @@
+// 字体：只注册项目已有的 TTF；其余字体走系统回退，零外部请求。
+@use './_tokens.scss' as _tokens;
+
+@font-face {
+  font-family: 'FZBaiZhouRenZheTiS';
+  src: url('@/assets/fonts/FZBaiZhouRenZheTiS.TTF') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-ninja {
+  font-family: _tokens.$font-title !important;
+}
+
+.font-title {
+  font-family: _tokens.$font-title;
+}
+
+.font-number {
+  font-family: _tokens.$font-number;
+}

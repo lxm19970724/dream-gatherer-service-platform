@@ -1,0 +1,62 @@
+// 通用 SCSS mixin（规范源 · 三端同步）
+@use "./_tokens.scss" as _tokens;
+
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@mixin card {
+  background: _tokens.$card-white;
+  border: 1px solid _tokens.$border-color;
+  border-radius: _tokens.$radius-lg;
+  box-shadow: _tokens.$shadow-card;
+}
+
+@mixin mini-only {
+  @media (max-width: 480px) {
+    @content;
+  }
+}
+
+@mixin desktop-only {
+  @media (min-width: 481px) {
+    @content;
+  }
+}
+
+@mixin focus-ring($color: _tokens.$brand-purple) {
+  &:focus-visible {
+    outline: 2px solid rgba($color, 0.35);
+    outline-offset: 2px;
+  }
+}
+
+@mixin scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(_tokens.$nav-dark, 0.18) transparent;
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(_tokens.$nav-dark, 0.18);
+    border-radius: _tokens.$radius-pill;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

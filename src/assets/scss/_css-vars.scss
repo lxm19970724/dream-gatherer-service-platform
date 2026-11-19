@@ -1,0 +1,42 @@
+// 由 _tokens.scss 输出 CSS 自定义属性：小程序端 H5 直接使用 var(--*)。
+// 仅在 index.scss 引入一次，避免重复输出。
+@use './_tokens.scss' as _tokens;
+:root {
+  --brand-purple: #{_tokens.$brand-purple};
+  --brand-coral: #{_tokens.$brand-coral};
+  --brand-yellow: #{_tokens.$brand-yellow};
+  --nav-dark: #{_tokens.$nav-dark};
+  --surface-dark: #{_tokens.$surface-dark};
+  --card-white: #{_tokens.$card-white};
+  --bg-page: #{_tokens.$bg-page};
+  --color-primary: #{_tokens.$color-primary};
+  --color-success: #{_tokens.$color-success};
+  --color-warning: #{_tokens.$color-warning};
+  --color-danger: #{_tokens.$color-danger};
+  --color-info: #{_tokens.$color-info};
+  --text-primary: #{_tokens.$text-primary};
+  --text-secondary: #{_tokens.$text-secondary};
+  --text-muted: #{_tokens.$text-muted};
+  --text-inverse: #{_tokens.$text-inverse};
+  --border-color: #{_tokens.$border-color};
+  --radius-sm: #{_tokens.$radius-sm};
+  --radius-md: #{_tokens.$radius-md};
+  --radius-lg: #{_tokens.$radius-lg};
+  --radius-pill: #{_tokens.$radius-pill};
+  --sp-1: #{_tokens.$sp-1};
+  --sp-2: #{_tokens.$sp-2};
+  --sp-3: #{_tokens.$sp-3};
+  --sp-4: #{_tokens.$sp-4};
+  --sp-5: #{_tokens.$sp-5};
+  --sp-6: #{_tokens.$sp-6};
+  --sp-8: #{_tokens.$sp-8};
+  --sp-10: #{_tokens.$sp-10};
+  --font-title: #{_tokens.$font-title};
+  --font-body: #{_tokens.$font-body};
+  --font-number: #{_tokens.$font-number};
+  --sidebar-width: #{_tokens.$sidebar-width};
+  --topbar-height: #{_tokens.$topbar-height};
+  --mini-width: #{_tokens.$mini-width};
+  --mini-height: #{_tokens.$mini-height};
+  --shadow-card: #{_tokens.$shadow-card};
+}

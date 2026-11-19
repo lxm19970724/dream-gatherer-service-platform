@@ -1,0 +1,3 @@
+// 兼容层：旧代码中的 @import '_variables.scss' 继续可用。
+// 令牌真值只定义在 _tokens.scss，此处不重复声明色值。
+@use './_tokens.scss';

@@ -1,0 +1,59 @@
+// ============================================================================
+// 设计令牌（规范源 · 三端同步）
+// 全站颜色 / 圆角 / 间距 / 字体 / 布局基准的唯一来源。
+// 业务代码禁止硬编码色值；ant-design-vue 侧统一走 src/theme/antd.ts。
+// ============================================================================
+
+// —— 品牌色（PRD 第 4 节） ——
+$brand-purple: #6C4CF0;
+$brand-coral:  #FF7A50;
+$brand-yellow: #E7CC38;
+$nav-dark:     #1E1E1E;
+$surface-dark: #2A2A2A;
+$card-white:   #FFFFFF;
+$bg-page:      #FAFAFA;
+
+// —— 语义色 ——
+$color-primary:  $brand-purple;
+$color-success:  #12B76A;
+$color-warning:  $brand-coral;
+$color-danger:   #F04438;
+$color-info:     #2E7CF6;
+$text-primary:   #1E1E1E;
+$text-secondary: #6B7280;
+$text-muted:     #9CA3AF;
+$text-inverse:   #FFFFFF;
+$border-color:   #EEF0F4;
+
+// —— 圆角 / 间距 / 阴影 ——
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-pill: 999px;
+$sp-1: 4px;
+$sp-2: 8px;
+$sp-3: 12px;
+$sp-4: 16px;
+$sp-5: 20px;
+$sp-6: 24px;
+$sp-8: 32px;
+$sp-10: 40px;
+$shadow-card: 0 2px 12px rgba(30, 30, 30, .06);
+$shadow-modal: 0 16px 48px rgba(30, 30, 30, .18);
+
+// —— 字体栈（已有 TTF 优先，系统字体回退） ——
+$font-title:  'FZBaiZhouRenZheTiS', 'Source Han Serif CN', 'Noto Serif SC', 'Songti SC', serif;
+$font-body:   'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+$font-number: 'Inter', 'SF Pro Display', -apple-system, 'Segoe UI', sans-serif;
+
+// —— 布局 ——
+$sidebar-width: 232px;
+$topbar-height: 64px;
+$content-max: 1440px;
+$mini-width: 375px;
+$mini-height: 812px;
+
+// —— 兼容旧引用（租户端过渡层，T05 可清理） ——
+$primary: $color-primary;
+$bg-dark: $nav-dark;
+$text-color: $text-inverse;
