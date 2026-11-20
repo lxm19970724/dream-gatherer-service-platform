@@ -1,48 +1,36 @@
 <script setup lang="ts">
-/** 登录审计（画板 18）：登录 KPI + 风险分布 + 审计明细表 */
-import { computed, ref } from 'vue'
-import { Input, Select } from 'ant-design-vue'
+/** 审计日志：登录审计（谁在什么时候从哪登录）+ 平台操作日志（谁改了什么） */
+import { computed, onMounted, ref } from 'vue'
+import { Input, Select, Tabs, TabPane } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import KpiCard from '@/components/KpiCard.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
-import { PLATFORM_LOGINS } from '@/mock/audit'
-import { hashUid } from '@/mock/utils'
+import { auditApi, type AuditRow } from '@/api'
+import type { OperationLog } from '@/types'
 
+const activeTab = ref('login')
 const keyword = ref('')
 const resultFilter = ref('all')
-const DEVICES = ['Chrome / Windows', 'Safari / macOS', 'Edge / Windows', '小程序 H5']
 const RESULT_LABEL: Record<string, string> = { success: '成功', fail: '失败' }
 
-interface AuditRow {
-  id: string
-  account: string
-  time: string
-  ip: string
-  device: string
-  result: 'success' | 'fail'
-  risk: '低' | '中' | '高'
-  action: string
+const allRows = ref<AuditRow[]>([])
+const operationRows = ref<OperationLog[]>([])
+async function loadAudits(): Promise<void> {
+  const [login, ops] = await Promise.all([
+    auditApi.listLoginAudits({ size: 1000 }),
+    auditApi.listOperationLogs({ size: 1000 }),
+  ])
+  allRows.value = login.records
+  operationRows.value = ops.records
 }
-const allRows: AuditRow[] = PLATFORM_LOGINS.map((record) => {
-  const hash = hashUid(record.ip + record.time)
-  return {
-    id: record.id,
-    account: record.who,
-    time: record.time,
-    ip: record.ip,
-    device: DEVICES[hash % DEVICES.length] as string,
-    result: record.action.includes('失败') ? 'fail' : 'success',
-    risk: hash % 11 === 0 ? '高' : hash % 4 === 0 ? '中' : '低',
-    action: record.target,
-  }
-})
+onMounted(loadAudits)
 
-const successCount = computed(() => allRows.filter((row) => row.result === 'success').length)
-const failCount = computed(() => allRows.filter((row) => row.result === 'fail').length)
-const riskCount = computed(() => allRows.filter((row) => row.risk === '高').length)
+const successCount = computed(() => allRows.value.filter((row) => row.result === 'success').length)
+const failCount = computed(() => allRows.value.filter((row) => row.result === 'fail').length)
+const riskCount = computed(() => allRows.value.filter((row) => row.risk === '高').length)
 
-const rows = computed<Record<string, unknown>[]>(() => allRows.filter((row) => {
+const rows = computed<Record<string, unknown>[]>(() => allRows.value.filter((row) => {
   if (resultFilter.value !== 'all' && row.result !== resultFilter.value) return false
   const query = keyword.value.trim().toLowerCase()
   if (!query) return true
@@ -51,10 +39,15 @@ const rows = computed<Record<string, unknown>[]>(() => allRows.filter((row) => {
 
 /** 近 7 日登录柱状图（内联 SVG，无图表依赖） */
 const chart = computed(() => {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const today = new Date()
   const days = Array.from({ length: 7 }, (_, index) => {
-    const day = String(9 + index).padStart(2, '0')
-    const count = allRows.filter((row) => row.time.slice(8, 10) === day).length
-    return { day: `11-${day}`, count }
+    const date = new Date(today)
+    date.setDate(today.getDate() - (6 - index))
+    const day = `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    const fullDate = `${date.getFullYear()}-${day}`
+    const count = allRows.value.filter((row) => row.time.slice(0, 10) === fullDate).length
+    return { day, count }
   })
   const max = Math.max(1, ...days.map((item) => item.count))
   return days.map((item) => ({ ...item, height: Math.max(4, Math.round((item.count / max) * 76)) }))
@@ -69,11 +62,23 @@ const columns: DataTableColumn[] = [
   { title: '风险', dataIndex: 'risk', width: 80 },
   { title: '操作对象', dataIndex: 'action', width: 110 },
 ]
+
+/** 平台操作日志：记录权限相关的写操作，与登录行为分开 */
+const operationColumns: DataTableColumn[] = [
+  { title: '时间', dataIndex: 'time', width: 160 },
+  { title: '操作人', dataIndex: 'actor', width: 160 },
+  { title: '角色', dataIndex: 'role', width: 130 },
+  { title: '动作', dataIndex: 'action', width: 170 },
+  { title: '对象', dataIndex: 'target', width: 180 },
+  { title: '详情', dataIndex: 'detail', width: 260 },
+]
 </script>
 
 <template>
   <main class="dev-log">
-    <PageHeader title="登录审计" subtitle="平台账号登录行为与风险识别" eyebrow="AUDIT LOG" />
+    <PageHeader title="审计日志" subtitle="登录行为与平台操作留痕" eyebrow="AUDIT LOG" />
+    <Tabs v-model:activeKey="activeTab">
+      <TabPane key="login" tab="登录审计">
     <section class="dev-log__kpis">
       <KpiCard label="登录总次数" :value="allRows.length" tone="purple" />
       <KpiCard label="登录成功" :value="successCount" tone="success" />
@@ -98,7 +103,7 @@ const columns: DataTableColumn[] = [
       </article>
       <article class="dev-log__panel dev-log__risk">
         <h2>风险说明</h2>
-        <p>风险等级由 IP 与登录时间哈希派生，仅作前端演示：</p>
+        <p>风险等级由后端根据登录行为判定：</p>
         <ul>
           <li>
             <StatusTag value="低" tone="green" /> 常规登录
@@ -137,6 +142,17 @@ const columns: DataTableColumn[] = [
         </template>
       </DataTable>
     </section>
+      </TabPane>
+
+      <TabPane key="operations" tab="平台操作日志">
+        <section class="dev-log__panel dev-log__table">
+          <h2>操作留痕</h2>
+          <p class="dev-log__ops-hint">记录新增租户、租户成交价调整与审批、账号重置等权限相关操作，回答「谁改了什么」。</p>
+          <DataTable :columns="operationColumns" :rows="operationRows" :searchable="false" :page-size="10"
+            empty-text="暂无操作记录" />
+        </section>
+      </TabPane>
+    </Tabs>
   </main>
 </template>
 
@@ -212,6 +228,13 @@ const columns: DataTableColumn[] = [
 
   &__select {
     width: 120px;
+  }
+
+  &__ops-hint {
+    color: _tokens.$text-muted;
+    font-size: 12px;
+    line-height: 1.7;
+    margin-bottom: _tokens.$sp-4;
   }
 }
 </style>

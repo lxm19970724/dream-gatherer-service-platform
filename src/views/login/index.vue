@@ -2,27 +2,20 @@
 import { useRouter } from 'vue-router'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
-import type { Role } from '@/types'
-import { clearRemember, loadRemember, login as establishSession, saveRemember } from '@/stores/session'
+import { clearRemember, loadRemember, saveRemember } from '@/stores/auth'
+import { authApi } from '@/api'
 
-/**
- * 登录页可配置文案与角色解析（规范源，默认保持租户端现状）。
- * 家族端复制本目录后仅改此处默认值，动画逻辑零改动。
- */
+/** 登录页文案配置；账号由平台用户 store 统一校验。 */
 interface LoginProps {
   title?: string
   subtitle?: string
   accountPlaceholder?: string
-  resolveRole?: (account: string) => Role
-  homePathOf?: (role: Role) => string
 }
 
 const props = withDefaults(defineProps<LoginProps>(), {
-  title: '家族租户管理系统',
-  subtitle: '管理家族租户账号',
-  accountPlaceholder: '429108139',
-  resolveRole: () => 'dev' as Role,
-  homePathOf: () => '/',
+  title: '聚梦者·租户分发平台',
+  subtitle: '管理租户开通与套餐服务',
+  accountPlaceholder: 'dev@xingyuan',
 })
 
 /* -------------------------------------------------------------------------- */
@@ -433,10 +426,7 @@ function togglePassword(): void {
   })
 }
 
-/**
- * 演示用登录：这里只做前端模拟。
- * 接入真实接口时，把 sleep + loginSuccess 换成你的请求即可。
- */
+/** 登录：调用后端认证接口 */
 async function handleSubmit(): Promise<void> {
   if (loading.value) return
 
@@ -448,19 +438,21 @@ async function handleSubmit(): Promise<void> {
     return
   }
 
+  const account = username.value.trim()
   loading.value = true
   try {
-    const role = props.resolveRole(username.value)
-    establishSession(username.value, role)
-    if (remember.value) saveRemember(username.value, password.value)
+    await authApi.login({ account, password: password.value })
+    if (remember.value) saveRemember(account, password.value)
     else clearRemember()
-    router.push(props.homePathOf(role))
+    router.push('/dev-overview')
     loginSuccess.value = true
     showPassword.value = false
     launchConfetti()
     later(() => {
       loginSuccess.value = false
     }, 5600)
+  } catch (error) {
+    showFailure(error instanceof Error ? error.message : '登录失败，请重试。')
   } finally {
     loading.value = false
   }
@@ -776,6 +768,7 @@ watch([mode, purplePeek, loginFailed, loginSuccess, usernameFocused], () => {
               </svg>
             </button>
           </form>
+
         </div>
       </main>
     </div>

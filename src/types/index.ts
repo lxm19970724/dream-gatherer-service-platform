@@ -1,217 +1,20 @@
-/**
- * 三端共享类型定义（规范源 · 三端同步）
- * 约定：UID 一律 string；日期 YYYY-MM-DD；时间 YYYY-MM-DD HH:mm。
- */
+/** 租户分发平台前端领域类型（数据来源均为 Java 后端） */
 
-/** ===== 基础联合类型 ===== */
-export type AppMode = 'dev' | 'family'
-export type Role = 'dev' | 'admin' | 'leader' | 'vice' | 'elder' | 'member'
-export type FamilyRole = Exclude<Role, 'dev'>
-export type MemberStatus = 'active' | 'left' | 'removed'
+export type PlatformRole = 'super' | 'senior' | 'basic'
+export type PlatformAction =
+  | 'resetPassword'
+  | 'createTenant'
+  | 'requestPrice'
+  | 'approvePrice'
+  | 'editPrice'
+  | 'manageUsers'
 export type TenantStatus = 'active' | 'expiring' | 'expired' | 'locked'
-export type LedgerType = 'rule' | 'manual' | 'redeem' | 'refund' | 'init'
-export type RuleType = 'tier' | 'damage' | 'abyss' | 'manual'
-export type ChangeType = 'join' | 'left' | 'removed' | 'role' | 'info' | 'redeem' | 'init'
-export type SourceType = 'import-user' | 'import-abyss' | 'import-points' | 'manual' | 'system' | 'member'
-export type RedeemStatus = 'pending' | 'approved' | 'fulfilled' | 'rejected'
-export type ItemStatus = 'on' | 'off'
 
-/** 字段来源标注（PRD v1.3 §0.1.2）：真实 Excel 值 vs 前端演示合成 */
-export type FieldSource = 'excel' | 'synthetic'
-/** 逐字段来源元数据，供 UI 展示「来源：…」与审计说明 */
-export type FieldSourceMap<T> = Partial<Record<keyof T, FieldSource>>
-
-/** 所有页面 ID（与路由 path / PRD 页面 ID 一一对应） */
+/** 所有页面 ID（与路由 path 一一对应；菜单固定） */
 export type PageId =
-  | 'dev-overview' | 'dev-tenants' | 'dev-new' | 'dev-billing' | 'dev-accounts' | 'dev-log' | 'dev-settings'
-  | 'dashboard' | 'members' | 'changes' | 'abyss' | 'records' | 'points' | 'rules'
-  | 'rewards' | 'redemptions' | 'content' | 'accounts' | 'subscription' | 'settings' | 'audit'
-  | 'admin-home' | 'admin-settings'
-  | 'my-overview' | 'my-map' | 'my-records' | 'my-points' | 'my-shop'
-  | 'my-requests' | 'my-notices' | 'my-moments' | 'my-profile' | 'mobile'
-  | 'home' | 'shop' | 'requests' | 'profile' | 'manage' | 'moments'
+  | 'dev-overview' | 'dev-tenants' | 'dev-billing' | 'dev-accounts' | 'dev-users' | 'dev-log' | 'dev-profile'
 
-/** ===== 核心实体 ===== */
-export interface Member {
-  /** M001...（前端演示合成） */
-  id: string
-  /** Excel「UID」，字符串，防精度丢失（真实 Excel） */
-  account: string
-  /** Excel「昵称」，可含 emoji / 组合字符（真实 Excel） */
-  name: string
-  /** 前端演示合成；种子账号除外 */
-  role: FamilyRole
-  /** 原 Excel 缺失 → null，UI 显示「—」 */
-  job: string | null
-  level: number | null
-  /** 家族称号（前端演示合成） */
-  title: string
-  /** 可用积分（前端演示合成） */
-  points: number
-  /** 冻结积分（前端演示合成） */
-  frozen: number
-  status: MemberStatus
-  /** YYYY-MM-DD，截取自 Excel「成员加入时间」 */
-  join: string
-  lastActive: string
-  /** T1..T10（前端演示合成） */
-  team: string | null
-  captain: boolean
-  province: string
-  city: string
-  district: string
-  accountStatus: 'active' | 'disabled'
-  lastLogin: string
-  /** 来自深渊战报「挑战次数」（真实 Excel） */
-  challengeCount: number
-  /** 逐字段来源标注；渲染层可据此显示「来源：前端演示合成」 */
-  source?: FieldSourceMap<Member>
-}
-
-export interface AbyssReportRow {
-  rank: number
-  name: string
-  uid: string
-  damage: number
-  challenges: number
-  /** 由桥接计算，不来自 Excel */
-  qualified?: boolean
-  unregistered?: boolean
-  points?: number
-  /** 伤害=0 且 挑战=0 的真实未参与记录（第 93–100 名），UI 灰显保留、不得过滤 */
-  absent?: boolean
-}
-
-export interface AbyssReport {
-  title: string
-  file: string
-  week: string
-  date: string
-  uploadedAt: string
-  uploadedBy: string
-  rows: AbyssReportRow[]
-}
-
-export interface Tier { from: number; to: number; points: number }
-export interface OverRule { rank: number; minChallenges: number; points: number }
-
-export interface PointRule {
-  id: string
-  name: string
-  desc: string
-  type: RuleType
-  cond: string
-  formula: string
-  points: number
-  cap: number
-  priority: number
-  enabled: boolean
-  tiers?: Tier[]
-  over?: OverRule
-  threshold?: number
-}
-
-export interface PointLedger {
-  id: string
-  memberId: string
-  time: string
-  amount: number
-  type: LedgerType
-  reason: string
-  operator: string
-}
-
-export interface RewardItem {
-  id: string
-  name: string
-  desc: string
-  cost: number
-  stock: number
-  limit: number
-  status: ItemStatus
-  glyph: string
-  g1: string
-  g2: string
-}
-
-export interface TimelineEntry { t: string; text: string; who: string }
-
-export interface Redemption {
-  id: string
-  memberId: string
-  itemId: string
-  itemName: string
-  cost: number
-  status: RedeemStatus
-  applied: string
-  contact: string
-  note: string
-  reviewer: string
-  timeline: TimelineEntry[]
-}
-
-export interface Announcement {
-  id: string
-  kind: '公告' | '通知'
-  title: string
-  content: string
-  image: string | null
-  pinned: boolean
-  status: 'published' | 'draft'
-  publishedAt: string
-  publisher: string
-  auto?: boolean
-  tag?: string
-}
-
-export interface Comment { name: string; text: string }
-
-export interface Moment {
-  id: string
-  memberId: string
-  content: string
-  images: string[]
-  time: string
-  likes: number
-  comments: Comment[]
-}
-
-export interface ChangeRecord {
-  id: string
-  date: string
-  time: string
-  memberId: string | null
-  name: string
-  type: ChangeType
-  desc: string
-  source: SourceType
-  operator: string
-}
-
-export interface ImportRecord {
-  id: string
-  type: 'user' | 'abyss' | 'points'
-  file: string
-  rows: number
-  ok: number
-  warn: number
-  err: number
-  time: string
-  status: 'success' | 'partial' | 'failed'
-}
-
-export interface AuditRecord {
-  id: string
-  time: string
-  who: string
-  role: string
-  action: string
-  target: string
-  ip: string
-}
-
-export interface Team { id: string; name: string; note: string }
-export interface Title { id: string; name: string; color: string; desc: string }
+/** 租户管理员账号（由后端 tenant_admin 表下发） */
 export interface AdminAccount {
   account: string
   name: string
@@ -221,66 +24,91 @@ export interface AdminAccount {
   issuer: string
 }
 
+/** 平台视角的租户：只保留分发平台使用的字段，租户内部数据不属于本平台 */
 export interface Tenant {
   id: string
   name: string
   short: string
-  server: string
-  level: number
-  leader: string
-  cap: number
-  founded: string
-  motto: string
-  createdAt: string
-  plan: '旗舰版' | '标准版' | '基础版'
-  seats: number
   expireAt: string
   status: TenantStatus
+  /** 该租户实际成交年费（元/年），可与平台标准价不同 */
+  dealPrice: number
+  /** 本次订购时长（月），如 6 / 12 / 24 / 36 */
+  termMonths: number
+  /** 定价说明，如「三年合约优惠」 */
+  priceNote: string
+  priceUpdatedAt: string
+  priceUpdatedBy: string
+  avatar: string
   admin: AdminAccount
-  titles: Title[]
-  teams: Team[]
-  members: Member[]
-  abyssReport: AbyssReport
-  announcements: Announcement[]
-  moments: Moment[]
-  items: RewardItem[]
-  redemptions: Redemption[]
-  rules: PointRule[]
-  ledger: PointLedger[]
-  changes: ChangeRecord[]
-  imports: ImportRecord[]
-  audit: AuditRecord[]
 }
 
-export interface RegionNode { code: string; name: string; children?: RegionNode[] }
+/** 唯一固定套餐——标准价（挂牌价）全局一份；实际成交价按租户记录，互不影响 */
+export interface PlatformPlan {
+  name: string
+  /** 标准价，元 / 年 */
+  price: number
+  updatedAt: string
+  updatedBy: string
+}
 
-/** ===== 会话 / 菜单 / 响应 ===== */
-export interface AppSession {
-  authed: boolean
-  role: Role
-  tenantId: string
+/** 平台维护人员账号（由初始管理员创建） */
+export interface PlatformUser {
+  id: string
   account: string
+  name: string
+  role: PlatformRole
+  /** 后端仅在新建 / 重置时一次性返回明文密码，列表不返回 */
+  password: string
+  status: 'active' | 'disabled'
+  createdAt: string
+  lastLogin: string
+  createdBy: string
 }
 
+/** 租户成交价申请：基础角色提交，高级角色审批；通过后只改该租户，不动全局标准价 */
+export interface PriceRequest {
+  id: string
+  tenantId: string
+  tenantName: string
+  applicant: string
+  applicantName: string
+  /** 申请订购时长（月） */
+  months: number
+  /** 该租户当前成交年费 */
+  currentPrice: number
+  /** 申请成交年费 */
+  requestedPrice: number
+  reason: string
+  status: 'pending' | 'approved' | 'rejected'
+  submittedAt: string
+  reviewer: string
+  reviewedAt: string
+}
+
+/** 续费记录（金额按该租户成交价折算） */
+export interface RenewalRecord {
+  id: string
+  tenant: string
+  months: number
+  amount: number
+  date: string
+  expireAt: string
+  method: string
+  operator: string
+}
+
+/** 平台操作日志（与安全审计区分：记录「谁改了什么」） */
+export interface OperationLog {
+  id: string
+  time: string
+  actor: string
+  role: PlatformRole
+  action: string
+  target: string
+  detail: string
+}
+
+/** ===== 菜单 ===== */
 export interface MenuItem { id: PageId; name: string; icon: string; badge?: 'pending' | 'myPending' | 'content' }
 export interface MenuGroup { label: string; items: MenuItem[] }
-
-/** Mock 服务层统一响应，便于未来替换真实 API */
-export interface MockResult<T> { code: 0 | 1; data: T; message: string }
-
-/** ===== 关键操作入参 / 出参 ===== */
-export interface SettleInput { week: string; operator: string; createMissing: boolean }
-export interface SettleIssue {
-  kind: 'unregistered' | 'over-cap' | 'zero-damage' | 'duplicate'
-  uid?: string
-  message: string
-}
-export interface SettleDetail extends AbyssReportRow { memberId: string | null; ruleHit: string }
-export interface SettleResult {
-  ok: boolean
-  issues: SettleIssue[]
-  details: SettleDetail[]
-  granted: { memberId: string; points: number }[]
-  ledger: PointLedger[]
-}
-export interface RedeemInput { memberId: string; itemId: string; contact: string; note: string }

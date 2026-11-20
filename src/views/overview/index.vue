@@ -1,38 +1,38 @@
 <script setup lang="ts">
-/** 运营总览（T02）：租户 KPI + 分布环图 + 租户概览（画板 17 派生） */
+/** 运营总览：租户 KPI + 服务健康度 + 固定套餐概览 */
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import KpiCard from '@/components/KpiCard.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
-import { useDemo } from '@/stores/demo'
+import TenantAvatar from '@/components/TenantAvatar.vue'
+import { useApp } from '@/stores/app'
 
-const demo = useDemo()
+const app = useApp()
 const router = useRouter()
 
-const total = computed(() => demo.tenants.length)
-const activeCount = computed(() => demo.tenants.filter((tenant) => tenant.status === 'active').length)
-const warningCount = computed(() => demo.tenants.filter((tenant) => tenant.status === 'expiring' || tenant.status === 'expired').length)
-const seatUsed = computed(() => demo.tenants.reduce((sum, tenant) => sum + tenant.seats, 0))
+const total = computed(() => app.tenants.length)
+const activeCount = computed(() => app.tenants.filter((tenant) => tenant.status === 'active').length)
+const warningCount = computed(() => app.tenants.filter((tenant) => tenant.status === 'expiring' || tenant.status === 'expired').length)
+const pendingCount = computed(() => app.priceRequests.filter((request) => request.status === 'pending').length)
 
 const circumference = 2 * Math.PI * 42
 const activeDash = computed(() => `${circumference * (total.value ? activeCount.value / total.value : 0)} ${circumference}`)
 
 const columns: DataTableColumn[] = [
   { title: '家族 / 租户', dataIndex: 'name', width: 220 },
-  { title: '服务器', dataIndex: 'server' },
-  { title: '套餐', dataIndex: 'plan', width: 100 },
-  { title: '席位', dataIndex: 'seats', width: 80 },
+  { title: '管理员账号', dataIndex: 'account', width: 180 },
+  { title: '成交年费', dataIndex: 'dealPrice', width: 120 },
   { title: '到期', dataIndex: 'expireAt', width: 120 },
   { title: '状态', dataIndex: 'status', width: 100 },
 ]
-const rows = computed(() => demo.tenants.map((tenant) => ({
+const rows = computed(() => app.tenants.map((tenant) => ({
   id: tenant.id,
   name: tenant.name,
-  server: tenant.server,
-  plan: tenant.plan,
-  seats: tenant.seats,
+  avatar: tenant.avatar,
+  account: tenant.admin.account,
+  dealPrice: tenant.dealPrice,
   expireAt: tenant.expireAt,
   status: tenant.status,
 })))
@@ -44,9 +44,9 @@ const STATUS_LABEL: Record<string, string> = {
 
 <template>
   <main class="dev-overview">
-    <PageHeader title="运营总览" subtitle="平台租户、订阅与服务健康度一览" eyebrow="OVERVIEW">
+    <PageHeader title="运营总览" subtitle="平台租户、服务健康度与固定套餐标准价一览" eyebrow="OVERVIEW">
       <template #actions>
-        <button type="button" class="dev-overview__primary" @click="router.push('/dev-new')">新建租户</button>
+        <button type="button" class="dev-overview__primary" @click="router.push('/dev-tenants')">管理租户</button>
       </template>
     </PageHeader>
 
@@ -58,7 +58,7 @@ const STATUS_LABEL: Record<string, string> = {
 
     <section class="dev-overview__grid">
       <article class="panel">
-        <h2>订阅分布</h2>
+        <h2>服务分布</h2>
         <div class="dev-overview__donut">
           <svg viewBox="0 0 100 100" width="130" height="130" role="img" aria-label="在服务租户占比">
             <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border-color)" stroke-width="12" />
@@ -77,17 +77,17 @@ const STATUS_LABEL: Record<string, string> = {
       </article>
 
       <article class="panel">
-        <h2>席位与服务</h2>
-        <div class="dev-overview__seat">
-          <p>累计分发席位</p>
-          <strong class="font-number">{{ seatUsed }}</strong>
-          <div class="dev-overview__bar"><span :style="{ width: `${Math.min(100, seatUsed / 3)}%` }" /></div>
-          <p class="dev-overview__muted">按租户套餐初始化，席位上限随套餐变更</p>
+        <h2>固定套餐</h2>
+        <div class="dev-overview__plan">
+          <p>当前套餐 · 标准价</p>
+          <strong>{{ app.plan.name }}</strong>
+          <p class="dev-overview__price">¥ {{ app.plan.price.toLocaleString() }} <small>/ 年</small></p>
+          <p class="dev-overview__muted">标准价仅为报价基准；各租户成交年费独立，长约优惠在「套餐与成交价」中申请与审批。</p>
         </div>
         <div class="dev-overview__quick">
           <router-link to="/dev-tenants">查看租户列表 →</router-link>
-          <router-link to="/dev-accounts">分发平台账号 →</router-link>
-          <router-link to="/dev-log">查看登录审计 →</router-link>
+          <router-link to="/dev-billing">套餐与改价申请 →<span v-if="pendingCount"> ({{ pendingCount }})</span></router-link>
+          <router-link to="/dev-log">查看审计日志 →</router-link>
         </div>
       </article>
     </section>
@@ -101,7 +101,13 @@ const STATUS_LABEL: Record<string, string> = {
               :label="STATUS_LABEL[String(record.status)] ?? String(record.status)" />
           </template>
           <template v-else-if="column.dataIndex === 'name'">
+          <div class="dev-overview__tenant">
+            <TenantAvatar :variant="String(record.avatar)" :size="30" />
             <router-link to="/dev-tenants" class="dev-overview__link">{{ String(record.name) }}</router-link>
+          </div>
+        </template>
+          <template v-else-if="column.dataIndex === 'dealPrice'">
+            <strong class="font-number">¥ {{ Number(record.dealPrice).toLocaleString() }}</strong>
           </template>
         </template>
       </DataTable>
@@ -112,6 +118,7 @@ const STATUS_LABEL: Record<string, string> = {
 <style scoped lang="scss">
 @use '@/assets/scss/_mixins.scss' as _mixins;
 @use '@/assets/scss/_tokens.scss' as _tokens;
+
 .dev-overview {
   &__primary {
     padding: 8px 18px;
@@ -170,7 +177,7 @@ const STATUS_LABEL: Record<string, string> = {
     }
   }
 
-  &__seat {
+  &__plan {
     padding: #{_tokens.$sp-4} 0;
 
     p {
@@ -181,26 +188,25 @@ const STATUS_LABEL: Record<string, string> = {
     strong {
       display: block;
       margin: #{_tokens.$sp-2} 0;
-      font-size: 30px;
+      font-size: 20px;
     }
   }
 
-  &__bar {
-    height: 8px;
-    border-radius: #{_tokens.$radius-pill};
-    background: _tokens.$bg-page;
+  &__price {
+    margin-bottom: #{_tokens.$sp-2} !important;
+    font-size: 24px;
+    color: _tokens.$brand-purple !important;
 
-    span {
-      display: block;
-      height: 100%;
-      border-radius: #{_tokens.$radius-pill};
-      background: _tokens.$brand-purple;
+    small {
+      font-size: 12px;
+      color: _tokens.$text-muted;
     }
   }
 
   &__muted {
     margin-top: #{_tokens.$sp-2};
     color: _tokens.$text-muted !important;
+    line-height: 1.7;
   }
 
   &__quick {
@@ -217,6 +223,12 @@ const STATUS_LABEL: Record<string, string> = {
 
   &__table {
     margin-top: #{_tokens.$sp-2};
+  }
+
+  &__tenant {
+    display: flex;
+    align-items: center;
+    gap: #{_tokens.$sp-2};
   }
 
   &__link {

@@ -2,9 +2,9 @@
  * @Author: lixuming
  * @Date: 2026-11-19 14:52:45
  * @LastEditors: lixuming 1493311067@qq.com
- * @LastEditTime: 2026-11-19 17:24:46
+ * @LastEditTime: 2026-11-20 17:04:37
  * @Description: 
- * @FilePath: \dream-center-family-manage\src\components\StatusTag.vue
+ * @FilePath: \dream-gatherer-service-platform\src\components\StatusTag.vue
 -->
 <script setup lang="ts">
 /** 状态 / 职位 / 来源标签：口径与原型 DB.STATUS / ROLES / SRC 一致 */
@@ -71,7 +71,7 @@ const text = computed(() => props.label || props.value)
 
   &.tone-yellow {
     background: rgba(_tokens.$brand-yellow, .24);
-    color: darken(_tokens.$brand-yellow, 28%);
+    color: rgba(_tokens.$brand-yellow, .28);
   }
 
   &.tone-green {

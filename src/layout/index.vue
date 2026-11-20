@@ -1,76 +1,74 @@
 <script setup lang="ts">
-/** 租户端统一外壳（画板 24 规范）：深色侧栏 + 顶栏 + 白卡浅灰内容区 */
-import { computed, ref } from 'vue'
+/** 租户分发平台统一外壳：深色侧栏 + 顶栏 + 白卡浅灰内容区。菜单固定，不做权限过滤。 */
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Input } from 'ant-design-vue'
+import AppIcon from '@/components/AppIcon.vue'
+import BrandMark from '@/components/BrandMark.vue'
 import type { MenuItem } from '@/types'
-import { getMenu, can, logout, ROLE_LABEL, useSession } from '@/stores/session'
-import { useDemo } from '@/stores/demo'
-import { TENANT_PLATFORM_ACCOUNT } from '@/mock/utils'
+import { PLATFORM_ROLE_LABEL, logout, useAuth } from '@/stores/auth'
+import { fixedMenu, titleOf, toggleSidebar, useLayout } from '@/stores/layout'
+import {
+  authApi, overviewApi, planApi, platformUserApi, priceRequestApi, renewalApi, tenantsApi,
+} from '@/api'
 
 const route = useRoute()
 const router = useRouter()
-const session = useSession()
-const demo = useDemo()
-const searchText = ref('')
+const auth = useAuth()
+const layout = useLayout()
 
-/** 菜单与权限同源：getMenu 内部逐项 can() 过滤，不写死角色数组 */
-const groups = computed(() => getMenu(session.role).map((group) => ({
-  ...group,
-  items: group.items.filter((item) => can(item.id, session)),
-})))
-
-const breadcrumb = computed(() => String(route.meta.title ?? '运营控制台'))
+const groups = computed(() => fixedMenu())
+const breadcrumb = computed(() => String(route.meta.title ?? titleOf(String(route.name ?? ''))))
 
 function isActive(item: MenuItem): boolean {
   return route.path === `/${item.id}`
 }
 
-/** 侧栏徽标：从内存态实时计算，避免写死数量 */
-function badgeOf(item: MenuItem): number {
-  if (item.badge === 'pending') return demo.redemptions.filter((entry) => entry.status === 'pending').length
-  if (item.badge === 'content') return demo.announcements.filter((entry) => entry.status === 'draft').length
-  if (item.badge === 'myPending') {
-    return demo.redemptions.filter((entry) => entry.memberId === 'M001' && entry.status === 'pending').length
-  }
-  return 0
-}
-
 function onSearch(): void {
-  const keyword = searchText.value.trim()
+  const keyword = layout.searchKeyword.trim()
   router.push({ name: 'DevTenants', query: keyword ? { q: keyword } : {} })
 }
 
-function onLogout(): void {
+async function onLogout(): Promise<void> {
+  await authApi.logout()
   logout()
   router.push('/login')
 }
+
+/** 进入控制台后统一从后端拉取基础数据到 store */
+async function preloadData(): Promise<void> {
+  if (!auth.authed) return
+  await Promise.allSettled([
+    tenantsApi.listTenants(),
+    planApi.getPlan(),
+    priceRequestApi.listPriceRequests(),
+    renewalApi.listRenewals(),
+    platformUserApi.listPlatformUsers(),
+    overviewApi.getOverview(),
+  ])
+}
+
+onMounted(preloadData)
+
 </script>
 
 <template>
-  <div class="layout">
+  <div class="layout" :class="{ 'layout--collapsed': layout.collapsed }">
     <aside class="layout__sidebar">
-      <div class="brand">
-        <!-- <span class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" width="28" height="28">
-            <path d="M16 2 29 9v14L16 30 3 23V9Z" fill="none" stroke="currentColor" stroke-width="2" />
-            <path d="m16 9 6 3.5v7L16 23l-6-3.5v-7Z" fill="currentColor" opacity=".85" />
-          </svg>
-        </span> -->
-        <span class="brand__text">
+      <div class="brand" :class="{ 'brand--collapsed': layout.collapsed }">
+        <span class="brand__mark"><BrandMark :size="30" glow /></span>
+        <span v-if="!layout.collapsed" class="brand__text">
           <strong>聚梦者·服务平台</strong>
-          <small>家族租户管理控制台</small>
+          <small>租户分发控制台</small>
         </span>
       </div>
 
       <nav class="layout__nav" aria-label="主导航">
         <section v-for="group in groups" :key="group.label" class="nav-group">
-          <p class="nav-group__label">{{ group.label }}</p>
           <router-link v-for="item in group.items" :key="item.id" :to="`/${item.id}`" class="nav-group__item"
-            :class="{ 'is-active': isActive(item) }">
-            <span class="nav-group__glyph" aria-hidden="true">◆</span>
-            <span class="nav-group__name">{{ item.name }}</span>
-            <span v-if="badgeOf(item)" class="nav-group__badge">{{ badgeOf(item) }}</span>
+            :class="{ 'is-active': isActive(item), 'is-collapsed': layout.collapsed }" :title="layout.collapsed ? item.name : undefined">
+            <AppIcon :name="item.icon" :size="18" class="nav-group__icon" />
+            <span v-if="!layout.collapsed" class="nav-group__name">{{ item.name }}</span>
           </router-link>
         </section>
       </nav>
@@ -79,23 +77,31 @@ function onLogout(): void {
     <div class="layout__main">
       <header class="topbar">
         <div class="topbar__crumb">
-          <span>星渊服务平台</span>
+          <button type="button" class="topbar__collapse" :aria-label="layout.collapsed ? '展开侧栏' : '收起侧栏'"
+            @click="toggleSidebar">
+            <AppIcon name="menu" :size="18" />
+          </button>
+          <span class="topbar__platform"><BrandMark :size="16" />聚梦者服务平台</span>
           <span class="topbar__sep">/</span>
           <strong>{{ breadcrumb }}</strong>
         </div>
         <div class="topbar__tools">
-          <Input.Search v-model:value="searchText" placeholder="搜索租户…" allow-clear class="topbar__search"
+          <Input.Search v-model:value="layout.searchKeyword" placeholder="搜索租户…" allow-clear class="topbar__search"
             @search="onSearch" />
+          <router-link to="/dev-log" class="topbar__icon-btn" title="审计日志"><AppIcon name="audit" :size="18" /></router-link>
+          <router-link to="/dev-profile" class="topbar__icon-btn" title="个人中心"><AppIcon name="profile" :size="18" /></router-link>
           <details class="user-menu">
             <summary class="user-menu__trigger">
-              <span class="user-menu__avatar">DEV</span>
-              <span>{{ ROLE_LABEL[session.role] }}</span>
-              <span aria-hidden="true">▾</span>
+              <span class="user-menu__avatar">{{ auth.name.slice(0, 1) }}</span>
+              <span>{{ auth.name }}</span>
+              <span class="user-menu__role">{{ PLATFORM_ROLE_LABEL[auth.role] }}</span>
+              <AppIcon name="chevron" :size="14" class="user-menu__chevron" />
             </summary>
             <div class="user-menu__panel">
-              <p>{{ TENANT_PLATFORM_ACCOUNT }}</p>
-              <button type="button" @click="router.push('/dev-settings')">平台设置</button>
-              <button type="button" class="user-menu__danger" @click="onLogout">退出登录</button>
+              <p>{{ auth.account }}</p>
+              <button type="button" @click="router.push('/dev-profile')"><AppIcon name="profile" :size="15" />个人中心</button>
+              <button type="button" @click="router.push('/dev-users')"><AppIcon name="users" :size="15" />平台用户</button>
+              <button type="button" class="user-menu__danger" @click="onLogout"><AppIcon name="logout" :size="15" />退出登录</button>
             </div>
           </details>
         </div>
@@ -109,14 +115,18 @@ function onLogout(): void {
 </template>
 
 <style scoped lang="scss">
-@use '@/assets/scss/_css-vars' as _vars;
-@use '@/assets/scss/_tokens' as _tokens;
 @use '@/assets/scss/_mixins' as _mixins;
+@use '@/assets/scss/_tokens' as _tokens;
 
 .layout {
+  --sidebar-width: #{_tokens.$sidebar-width};
   display: flex;
   min-height: 100vh;
   background: _tokens.$bg-page;
+
+  &--collapsed {
+    --sidebar-width: 72px;
+  }
 
   &__sidebar {
     position: fixed;
@@ -124,15 +134,18 @@ function onLogout(): void {
     z-index: 12;
     display: flex;
     flex-direction: column;
-    width: #{_tokens.$sidebar-width};
+    width: var(--sidebar-width);
+    overflow: hidden;
     background: _tokens.$nav-dark;
     color: #{_tokens.$text-inverse};
+    transition: width .18s;
   }
 
   &__main {
     flex: 1;
-    margin-left: #{_tokens.$sidebar-width};
+    margin-left: var(--sidebar-width);
     min-width: 0;
+    transition: margin-left .18s;
   }
 
   &__content {
@@ -144,19 +157,31 @@ function onLogout(): void {
 
 .brand {
   @include _mixins.flex-between;
-  gap: #{_tokens.$sp-2};
+  gap: #{_tokens.$sp-3};
   height: #{_tokens.$topbar-height};
   padding: 0 #{_tokens.$sp-5};
   border-bottom: 1px solid rgba(_tokens.$text-inverse, .08);
+  flex-shrink: 0;
+  overflow: hidden;
+  justify-content: flex-start;
+
+  &--collapsed {
+    justify-content: center;
+    padding: 0;
+  }
 
   &__mark {
-    color: #{_tokens.$brand-purple};
-    display: flex;
+    @include _mixins.flex-center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    color: _tokens.$text-inverse;
   }
 
   &__text {
     display: flex;
     flex-direction: column;
+    white-space: nowrap;
 
     strong {
       font-size: 15px;
@@ -178,20 +203,15 @@ function onLogout(): void {
 .nav-group {
   margin-bottom: #{_tokens.$sp-5};
 
-  &__label {
-    padding: 0 #{_tokens.$sp-3} #{_tokens.$sp-2};
-    color: rgba(_tokens.$text-inverse, .38);
-    font-size: 10px;
-    letter-spacing: .1em;
-  }
-
   &__item {
-    @include _mixins.flex-between;
+    display: flex;
+    align-items: center;
     gap: #{_tokens.$sp-2};
     padding: 9px #{_tokens.$sp-3};
     border-radius: #{_tokens.$radius-md};
     color: rgba(_tokens.$text-inverse, .72);
     font-size: 13px;
+    white-space: nowrap;
     transition: background .16s;
 
     &:hover {
@@ -199,53 +219,26 @@ function onLogout(): void {
     }
 
     &.is-active {
-      background: #{_tokens.$brand-purple};
+      background: _tokens.$brand-purple;
       color: #{_tokens.$text-inverse};
       font-weight: 600;
     }
+
+    &.is-collapsed {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
   }
 
-  &__glyph {
-    font-size: 9px;
-    opacity: .6;
+  &__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    opacity: .85;
   }
 
   &__name {
     flex: 1;
-  }
-
-  &__badge {
-    min-width: 18px;
-    padding: 0 5px;
-    border-radius: #{_tokens.$radius-pill};
-    background: #{_tokens.$brand-coral};
-    color: #{_tokens.$text-inverse};
-    font-size: 10px;
-    text-align: center;
-  }
-}
-
-.identity {
-  margin: #{_tokens.$sp-3};
-  padding: #{_tokens.$sp-4};
-  border-radius: #{_tokens.$radius-md};
-  background: #{_tokens.$surface-dark};
-
-  &__label {
-    color: rgba(_tokens.$text-inverse, .45);
-    font-size: 10px;
-  }
-
-  &__name {
-    margin-top: 2px;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  &__account {
-    margin: 2px 0 #{_tokens.$sp-3};
-    color: rgba(_tokens.$text-inverse, .5);
-    font-size: 10px;
   }
 }
 
@@ -253,16 +246,52 @@ function onLogout(): void {
   @include _mixins.flex-between;
   height: #{_tokens.$topbar-height};
   padding: 0 #{_tokens.$sp-8};
-  background: #{_tokens.$card-white};
-  border-bottom: 1px solid #{_tokens.$border-color};
+  background: _tokens.$card-white;
+  border-bottom: 1px solid _tokens.$border-color;
 
   &__crumb {
-    color: #{_tokens.$text-muted};
+    display: flex;
+    align-items: center;
+    color: _tokens.$text-muted;
     font-size: 13px;
 
     strong {
-      color: #{_tokens.$text-primary};
+      color: _tokens.$text-primary;
       font-weight: 600;
+    }
+  }
+
+  &__collapse {
+    margin-right: #{_tokens.$sp-3};
+    padding: 2px 8px;
+    border-radius: _tokens.$radius-sm;
+    color: _tokens.$text-secondary;
+    font-size: 15px;
+
+    &:hover {
+      background: _tokens.$bg-page;
+    }
+  }
+
+  &__platform {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: _tokens.$text-secondary;
+    white-space: nowrap;
+  }
+
+  &__icon-btn {
+    @include _mixins.flex-center;
+    width: 30px;
+    height: 30px;
+    border-radius: _tokens.$radius-md;
+    color: _tokens.$text-secondary;
+    transition: background .16s, color .16s;
+
+    &:hover {
+      background: _tokens.$bg-page;
+      color: _tokens.$brand-purple;
     }
   }
 
@@ -301,9 +330,21 @@ function onLogout(): void {
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: #{_tokens.$brand-purple};
-    color: #{_tokens.$text-inverse};
+    background: _tokens.$brand-purple;
+    color: _tokens.$text-inverse;
     font-size: 10px;
+  }
+
+  &__chevron {
+    color: _tokens.$text-muted;
+  }
+
+  &__role {
+    padding: 1px 6px;
+    border-radius: _tokens.$radius-pill;
+    background: rgba(_tokens.$brand-purple, .1);
+    color: _tokens.$brand-purple;
+    font-size: 11px;
   }
 
   &__panel {
@@ -311,26 +352,28 @@ function onLogout(): void {
     right: 0;
     top: 38px;
     z-index: 20;
-    width: 180px;
+    width: 190px;
     padding: #{_tokens.$sp-2};
-    border-radius: #{_tokens.$radius-md};
+    border-radius: _tokens.$radius-md;
     background: _tokens.$card-white;
-    box-shadow: #{_tokens.$shadow-modal};
+    box-shadow: _tokens.$shadow-modal;
 
     p {
       padding: #{_tokens.$sp-2};
-      color: #{_tokens.$text-muted};
+      color: _tokens.$text-muted;
       font-size: 11px;
       border-bottom: 1px solid _tokens.$border-color;
     }
 
     button {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: #{_tokens.$sp-2};
       width: 100%;
       padding: #{_tokens.$sp-2};
       text-align: left;
       font-size: 12px;
-      border-radius: #{_tokens.$radius-sm};
+      border-radius: _tokens.$radius-sm;
 
       &:hover {
         background: _tokens.$bg-page;
@@ -344,23 +387,16 @@ function onLogout(): void {
 }
 
 @media (max-width: 900px) {
-  .layout__sidebar {
-    width: 72px;
-  }
-
-  .layout__main {
-    margin-left: 72px;
-  }
-
-  .brand__text,
-  .nav-group__label,
-  .nav-group__name,
-  .identity {
-    display: none;
+  .layout--collapsed {
+    --sidebar-width: 60px;
   }
 
   .topbar__search {
     width: 140px;
+  }
+
+  .topbar__platform {
+    display: none;
   }
 }
 </style>

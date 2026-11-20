@@ -1,18 +1,12 @@
-/** 鉴权与权限守卫：未登录 → /login；无权限 → /lock/:pageId */
+/** 登录守卫：平台菜单固定，不再做页面级角色判断 */
 import type { Router } from 'vue-router'
-import type { PageId } from '@/types'
-import { can, useSession } from '@/stores/session'
+import { useAuth } from '@/stores/auth'
 
 export function installGuard(router: Router): void {
   router.beforeEach((to) => {
     if (to.meta.public === true) return true
-    const session = useSession()
-    if (!session.authed) return { name: 'Login' }
-
-    const pageId = to.meta.pageId as PageId | undefined
-    if (pageId && !can(pageId, session)) {
-      return { name: 'Lock', params: { pageId } }
-    }
+    const auth = useAuth()
+    if (!auth.authed) return { name: 'Login' }
     return true
   })
 }

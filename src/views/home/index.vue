@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-// 租户端 home 占位；正式运营总览见 views/dev/overview.vue（T02 实现）
+// 租户端 home 占位；正式运营总览见 views/overview/index.vue
 </script>
 
 <style lang="scss" scoped>

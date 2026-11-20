@@ -1,7 +1,16 @@
 <script setup lang="ts">
 /** 渐变头像：按姓名哈希取色，零图片请求 */
 import { computed } from 'vue'
-import { hashUid } from '@/mock/utils'
+
+/** 仅用于选择头像配色的稳定哈希，不参与任何业务数据 */
+function hashString(value: string): number {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
 
 interface Props {
   name: string
@@ -16,7 +25,7 @@ const GRADIENTS: readonly [string, string][] = [
   ['var(--brand-purple)', 'var(--brand-coral)'],
 ]
 const style = computed(() => {
-  const [from, to] = GRADIENTS[hashUid(props.name) % GRADIENTS.length] as [string, string]
+  const [from, to] = GRADIENTS[hashString(props.name) % GRADIENTS.length] as [string, string]
   return {
     width: `${props.size}px`,
     height: `${props.size}px`,
